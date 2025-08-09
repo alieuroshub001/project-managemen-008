@@ -1,10 +1,14 @@
+// components/Communication/ChannelView.tsx - Updated with file upload functionality
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Send, Paperclip, ChevronLeft } from 'lucide-react';
+import { Send, Paperclip, ChevronLeft, Settings, Image, Video, Music, FileText, Download, Images } from 'lucide-react';
 import Link from 'next/link';
 import { UserRole } from '@/types';
+import FileUpload, { UploadedFile } from './FileUploadDropdown';
+import ChannelManagementModal from './ChannelManagementModal';
+import MediaViewerModal from './MediaViewerModal';
 
 interface Message {
   _id: string;
@@ -15,7 +19,7 @@ interface Message {
     email: string;
   };
   createdAt: string;
-  attachments?: string[];
+  attachments?: any[];
 }
 
 interface ChannelDetails {
@@ -54,6 +58,10 @@ export default function ChannelView({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showFileUpload, setShowFileUpload] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [showManagement, setShowManagement] = useState(false);
+  const [showMediaViewer, setShowMediaViewer] = useState(false);
 
   useEffect(() => {
     const fetchChannelData = async () => {
@@ -91,7 +99,6 @@ export default function ChannelView({
     const { scrollTop } = e.currentTarget;
     setIsScrolled(scrollTop > 0);
 
-    // Load more messages when scrolling to top
     if (scrollTop === 0 && hasMore && !loading) {
       loadMoreMessages();
     }
@@ -117,7 +124,7 @@ export default function ChannelView({
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim()) return;
+    if (!messageInput.trim() && uploadedFiles.length === 0) return;
 
     try {
       const response = await fetch(`/api/communication/${channelId}`, {
@@ -126,7 +133,8 @@ export default function ChannelView({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: messageInput
+          content: messageInput,
+          attachments: uploadedFiles
         }),
       });
 
@@ -136,6 +144,8 @@ export default function ChannelView({
       
       setMessages(prev => [...prev, data.data]);
       setMessageInput('');
+      setUploadedFiles([]);
+      setShowFileUpload(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
     }
@@ -145,6 +155,108 @@ export default function ChannelView({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+  };
+
+  const handleFilesUploaded = (files: UploadedFile[]) => {
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeUploadedFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileIcon = (type: string) => {
+    switch (type) {
+      case 'image': return <Image className="w-4 h-4" />;
+      case 'video': return <Video className="w-4 h-4" />;
+      case 'audio': return <Music className="w-4 h-4" />;
+      default: return <FileText className="w-4 h-4" />;
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+const downloadFile = async (url: string, filename: string) => {
+  try {
+    // For Cloudinary URLs, we need to handle them differently
+    // Cloudinary serves files directly, so we can use them as-is
+    
+    // Create a temporary anchor element
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank'; // Open in new tab as fallback
+    link.rel = 'noopener noreferrer';
+    
+    // Add to DOM, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+  } catch (error) {
+    console.error('Download failed:', error);
+    
+    // Fallback: open in new window
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (fallbackError) {
+      console.error('Fallback download failed:', fallbackError);
+      alert('Download failed. Please try right-clicking the link and selecting "Save as..."');
+    }
+  }
+};
+
+  const renderAttachment = (attachment: any) => {
+    if (attachment.type === 'image') {
+      return (
+        <div className="mt-2 max-w-xs">
+          <img 
+            src={attachment.secure_url} 
+            alt={attachment.original_filename}
+            className="rounded-lg max-h-48 object-cover cursor-pointer"
+            onClick={() => window.open(attachment.secure_url, '_blank')}
+          />
+        </div>
+      );
+    } else if (attachment.type === 'video') {
+      return (
+        <div className="mt-2 max-w-xs">
+          <video 
+            src={attachment.secure_url}
+            controls
+            className="rounded-lg max-h-48"
+          />
+        </div>
+      );
+    } else {
+      return (
+        <div className="mt-2 p-2 bg-white bg-opacity-20 rounded border border-gray-200 max-w-xs">
+          <div className="flex items-center space-x-2">
+            {getFileIcon(attachment.type)}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {attachment.original_filename}
+              </p>
+              <p className="text-xs opacity-75">
+                {formatFileSize(attachment.bytes)} • {attachment.format?.toUpperCase()}
+              </p>
+            </div>
+            <button
+              onClick={() => downloadFile(attachment.secure_url, attachment.original_filename)}
+              className="p-1 hover:bg-gray-200 hover:bg-opacity-30 rounded"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      );
     }
   };
 
@@ -186,11 +298,24 @@ export default function ChannelView({
             </p>
           </div>
         </div>
-        {(role === 'superadmin' || role === 'admin' || role === 'hr') && (
-          <button className="text-sm text-indigo-600 hover:text-indigo-800">
-            Manage Channel
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setShowMediaViewer(true)}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+            title="View media"
+          >
+            <Images className="w-5 h-5" />
           </button>
-        )}
+          {(role === 'superadmin' || role === 'admin' || role === 'hr' || channel.createdBy._id === session?.user.id) && (
+            <button 
+              onClick={() => setShowManagement(true)}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+              title="Manage channel"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div 
@@ -209,26 +334,25 @@ export default function ChannelView({
             className={`flex ${message.sender._id === session?.user.id ? 'justify-end' : 'justify-start'}`}
           >
             <div 
-              className={`max-w-xs md:max-w-md lg:max-w-lg rounded-lg p-3 ${message.sender._id === session?.user.id ? 'bg-indigo-100 text-indigo-900' : 'bg-gray-100 text-gray-900'}`}
+              className={`max-w-xs md:max-w-md lg:max-w-lg rounded-lg p-3 ${
+                message.sender._id === session?.user.id 
+                  ? 'bg-indigo-100 text-indigo-900' 
+                  : 'bg-gray-100 text-gray-900'
+              }`}
             >
               {message.sender._id !== session?.user.id && (
                 <div className="font-medium text-sm mb-1">
                   {message.sender.name}
                 </div>
               )}
-              <div className="text-sm">{message.content}</div>
+              {message.content && (
+                <div className="text-sm">{message.content}</div>
+              )}
               {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-2 space-y-2">
+                <div className="space-y-2">
                   {message.attachments.map((attachment, index) => (
-                    <div key={index} className="border rounded p-2">
-                      <a 
-                        href={attachment} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        Attachment {index + 1}
-                      </a>
+                    <div key={index}>
+                      {renderAttachment(attachment)}
                     </div>
                   ))}
                 </div>
@@ -243,8 +367,58 @@ export default function ChannelView({
       </div>
 
       <div className="border-t border-gray-200 p-4">
+        {/* File Upload Area */}
+        {showFileUpload && (
+          <div className="mb-4">
+            <FileUpload 
+              onFilesUploaded={handleFilesUploaded}
+              maxFiles={5}
+              disabled={false}
+            />
+          </div>
+        )}
+
+        {/* Uploaded Files Preview */}
+        {uploadedFiles.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <h4 className="text-sm font-medium text-gray-700">Ready to send:</h4>
+            {uploadedFiles.map((file, index) => (
+              <div 
+                key={index} 
+                className="flex items-center justify-between p-2 bg-gray-50 rounded border"
+              >
+                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                  {getFileIcon(file.type)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {file.original_filename}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatFileSize(file.bytes)} • {file.format.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeUploadedFile(index)}
+                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center space-x-2">
-          <button className="p-2 text-gray-500 hover:text-gray-700">
+          <button 
+            onClick={() => setShowFileUpload(!showFileUpload)}
+            className={`p-2 rounded transition-colors ${
+              showFileUpload 
+                ? 'text-indigo-600 bg-indigo-50' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            title="Attach files"
+          >
             <Paperclip className="w-5 h-5" />
           </button>
           <div className="flex-1 relative">
@@ -259,13 +433,36 @@ export default function ChannelView({
           </div>
           <button 
             onClick={sendMessage}
-            disabled={!messageInput.trim()}
+            disabled={!messageInput.trim() && uploadedFiles.length === 0}
             className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
       </div>
+
+      {/* Channel Management Modal */}
+      {showManagement && channel && (
+        <ChannelManagementModal
+          isOpen={showManagement}
+          onClose={() => setShowManagement(false)}
+          channel={channel}
+          currentUserId={session?.user.id || ''}
+          onChannelUpdated={() => {
+            // Refresh channel data
+            window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Media Viewer Modal */}
+      {showMediaViewer && (
+        <MediaViewerModal
+          isOpen={showMediaViewer}
+          onClose={() => setShowMediaViewer(false)}
+          channelId={channelId}
+        />
+      )}
     </div>
   );
 }

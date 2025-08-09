@@ -1,4 +1,4 @@
-// types/index.ts - Updated IOTP interface
+// types/index.ts - Updated with media support
 export type UserRole = 'superadmin' | 'admin' | 'hr' | 'employee' | 'client';
 
 // User types
@@ -49,14 +49,16 @@ export interface IPasswordResetToken {
   createdAt: Date;
 }
 
-// API response type
-export interface IApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
+// Media/Attachment types
+export interface IAttachment {
+  public_id: string;
+  secure_url: string;
+  original_filename: string;
+  format: string;
+  bytes: number;
+  type: 'image' | 'video' | 'audio' | 'document';
+  resource_type: string;
 }
-// Add these to your existing types/index.ts
 
 // Message types
 export interface IMessage {
@@ -66,7 +68,7 @@ export interface IMessage {
   channelId: string;
   createdAt: Date;
   updatedAt: Date;
-  attachments?: string[]; // URLs to attachments
+  attachments?: IAttachment[]; // Array of attachment objects
   readBy?: string[]; // Array of user IDs who read the message
 }
 
@@ -88,4 +90,12 @@ export interface IUserChannel {
   notificationsEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// API response type
+export interface IApiResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
 }
