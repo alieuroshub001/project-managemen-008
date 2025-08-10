@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
-import Case from '@/models/Case';
 import { IApiResponse } from '@/types';
 
 export async function DELETE(request: Request) {
@@ -28,8 +27,6 @@ export async function DELETE(request: Request) {
 
     await connectToDatabase();
 
-    // Delete user's cases first (if needed)
-    await Case.deleteMany({ createdBy: userId });
 
     // Then delete the user
     await User.findByIdAndDelete(userId);

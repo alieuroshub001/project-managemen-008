@@ -140,6 +140,7 @@ export default function Signup() {
                   }
                 }}
               >
+                <option value="superadmin">Super Admin</option>
                 <option value="admin">Admin</option>
                 <option value="employee">Employee</option>
                 <option value="hr">HR</option>
