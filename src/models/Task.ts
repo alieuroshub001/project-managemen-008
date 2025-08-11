@@ -34,10 +34,31 @@ const TaskSchema: Schema = new Schema({
     resource_type: String,
     uploadedBy: { type: Schema.Types.ObjectId, ref: 'User' }
   }],
-  comments: [{
-    content: String,
-    user: { type: Schema.Types.ObjectId, ref: 'User' },
-    createdAt: { type: Date, default: Date.now }
+comments: [{
+  content: String,
+  user: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'User',
+    required: true 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now,
+    required: true 
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  },
+  attachments: [{
+    public_id: String,
+    secure_url: String,
+    original_filename: String,
+    format: String,
+    bytes: Number,
+    type: String,
+    resource_type: String
+  }]
   }],
   tags: [{ type: String }]
 }, { timestamps: true });
