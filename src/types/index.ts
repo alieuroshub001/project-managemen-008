@@ -51,6 +51,8 @@ export interface IPasswordResetToken {
 
 // Media/Attachment types
 export interface IAttachment {
+  url: any;
+  name: any;
   public_id: string;
   secure_url: string;
   original_filename: string;
@@ -159,4 +161,79 @@ export interface IProjectWithStats extends IProject {
     role: 'manager' | 'member' | 'viewer';
     taskCount: number;
   }>;
+}
+
+// Add to types/index.ts
+
+// HR Types
+export interface IEmployeeProfile {
+  userId: string; // Reference to User
+  employeeId: string; // Company employee ID
+  department: string;
+  position: string;
+  hireDate: Date;
+  salary?: number;
+  employmentType: 'full-time' | 'part-time' | 'contract' | 'intern';
+  manager?: string; // User ID of manager
+  skills?: string[];
+  emergencyContacts?: Array<{
+    name: string;
+    relationship: string;
+    phone: string;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ILeaveRequest {
+  _id: any;
+  id: string;
+  employeeId: string; // User ID
+  type: 'vacation' | 'sick' | 'personal' | 'bereavement' | 'other';
+  startDate: Date;
+  endDate: Date;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  reviewedBy?: string; // User ID of approver
+  reviewedAt?: Date;
+  attachments?: IAttachment[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IAttendanceRecord {
+  id: string;
+  employeeId: string; // User ID
+  date: Date;
+  checkIn: Date;
+  checkOut?: Date;
+  status: 'present' | 'absent' | 'late' | 'half-day' | 'on-leave';
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IHRDocument {
+  id: string;
+  title: string;
+  description?: string;
+  category: 'policy' | 'contract' | 'form' | 'guide' | 'other';
+  file: IAttachment;
+  accessibleTo: UserRole[]; // Which roles can access this document
+  createdBy: string; // User ID
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IOnboardingTask {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string; // User ID (HR or manager)
+  dueDate?: Date;
+  completed: boolean;
+  completedAt?: Date;
+  employeeId: string; // User ID of new employee
+  createdAt: Date;
+  updatedAt: Date;
 }
