@@ -1,5 +1,5 @@
 import mongoose, { Schema, Model } from 'mongoose';
-import { IHRDocument, UserRole } from '@/types';
+import { IHRDocument } from '@/types';
 
 const HRDocumentSchema: Schema = new Schema({
   title: { type: String, required: true },

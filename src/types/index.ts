@@ -51,8 +51,8 @@ export interface IPasswordResetToken {
 
 // Media/Attachment types
 export interface IAttachment {
-  url: any;
-  name: any;
+  url: string; // Cloudinary or other storage URL
+  name: string; // File name
   public_id: string;
   secure_url: string;
   original_filename: string;
@@ -186,7 +186,7 @@ export interface IEmployeeProfile {
 }
 
 export interface ILeaveRequest {
-  _id: any;
+  _id: string | number; // Use string if it's MongoDB ObjectId, number if it's SQL auto ID
   id: string;
   employeeId: string; // User ID
   type: 'vacation' | 'sick' | 'personal' | 'bereavement' | 'other';
