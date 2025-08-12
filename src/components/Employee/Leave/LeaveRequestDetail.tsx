@@ -37,7 +37,7 @@ export default function LeaveRequestDetail({ requestId, userId, role }: Props) {
   const fetchLeaveRequest = async (rid: string) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/leave/${rid}`);
+      const res = await fetch(`/api/employee/leave/${rid}`);
       const data: IApiResponse = await res.json();
 
       if (data.success) {
@@ -61,7 +61,7 @@ export default function LeaveRequestDetail({ requestId, userId, role }: Props) {
       setActionLoading(true);
 
       if (action === 'delete') {
-        const res = await fetch(`/api/leave/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/employee/leave/${id}`, { method: 'DELETE' });
         const data: IApiResponse = await res.json();
 
         if (data.success) {
@@ -73,7 +73,7 @@ export default function LeaveRequestDetail({ requestId, userId, role }: Props) {
         return;
       }
 
-      const res = await fetch(`/api/leave/${id}`, {
+      const res = await fetch(`/api/employee/leave/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),

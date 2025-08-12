@@ -52,7 +52,7 @@ export default function LeaveRequestList({ filter, role }: Props) {
   const fetchLeaveRequests = async () => {
     try {
       setLoading(true);
-      let url = `/api/leave?page=${page}&limit=${limit}`;
+      let url = `/api/employee/leave?page=${page}&limit=${limit}`;
       if (statusFilter) url += `&status=${statusFilter}`;
       if (typeFilter) url += `&type=${typeFilter}`;
 
