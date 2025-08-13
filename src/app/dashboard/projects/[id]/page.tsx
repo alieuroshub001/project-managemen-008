@@ -1,6 +1,6 @@
 // app/dashboard/projects/[id]/page.tsx
 'use client';
-import ProjectView from '@/components/Projects/ProjectView';
+import ProjectView from '@/components/Superadmin/Projects/ProjectView';
 
 export default function ProjectDetailPage() {
   return (

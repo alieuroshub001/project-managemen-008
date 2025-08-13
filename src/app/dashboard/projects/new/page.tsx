@@ -1,6 +1,6 @@
 // app/dashboard/projects/new/page.tsx
 'use client';
-import CreateProjectForm from '@/components/Projects/CreateProjectForm';
+import CreateProjectForm from '@/components/Superadmin/Projects/CreateProjectForm';
 
 export default function NewProjectPage() {
   return (

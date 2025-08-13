@@ -2,8 +2,8 @@
 'use client';
 import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import EmployeeProjectList from '@/components/Projects/EmployeeProjectList';
-import EmployeeTaskList from '@/components/Projects/EmployeeTaskList';
+import EmployeeProjectList from '@/components/Employee/Projects/EmployeeProjectList';
+import EmployeeTaskList from '@/components/Employee/Projects/EmployeeTaskList';
 
 export default function EmployeeDashboard() {
   const [activeTab, setActiveTab] = useState('projects');

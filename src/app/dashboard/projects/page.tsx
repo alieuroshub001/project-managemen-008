@@ -1,5 +1,5 @@
 // app/dashboard/projects/page.tsx
-import ProjectList from '@/components/Projects/ProjectList';
+import ProjectList from '@/components/Superadmin/Projects/ProjectList';
 import { UserRole } from '@/types';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';

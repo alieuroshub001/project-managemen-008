@@ -1,7 +1,7 @@
 // app/dashboard/projects/[id]/settings/page.tsx
 'use client';
 import { useParams } from 'next/navigation';
-import ProjectSettings from '@/components/Projects/ProjectSettings';
+import ProjectSettings from '@/components/Superadmin/Projects/ProjectSettings';
 
 export default function ProjectSettingsPage() {
   const { id } = useParams();

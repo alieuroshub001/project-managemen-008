@@ -237,3 +237,34 @@ export interface IOnboardingTask {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface IAttendanceRecord {
+  id: string;
+  employeeId: string;
+  date: Date;
+  shift: 'morning' | 'evening' | 'night';
+  checkIn: Date;
+  checkOut?: Date;
+  checkInReason?: string;
+  checkOutReason?: string;
+  status: 'present' | 'absent' | 'late' | 'half-day' | 'on-leave';
+  tasksCompleted?: Array<{
+    task: string;
+    description?: string;
+    hoursSpent?: number;
+  }>;
+  breaks?: Array<{
+    start: Date;
+    end?: Date;
+  }>;
+  totalBreakMinutes?: number;
+  namaz?: Array<{
+    start: Date;
+    end?: Date;
+  }>;
+  totalNamazMinutes?: number;
+  totalHours?: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

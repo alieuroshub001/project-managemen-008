@@ -12,11 +12,10 @@ function isValidObjectId(id: string): boolean {
   return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
 }
 
-// Get all leave requests (with optional filtering)
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user || !['hr', 'admin', 'superadmin'].includes(session.user.role)) {
       return NextResponse.json<IApiResponse>({
         success: false,
         message: 'Unauthorized'
@@ -29,6 +28,8 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     const type = searchParams.get('type');
     const employeeId = searchParams.get('employeeId');
+    const search = searchParams.get('search');
+    const department = searchParams.get('department');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const page = parseInt(searchParams.get('page') || '1');
@@ -48,11 +49,8 @@ export async function GET(request: Request) {
       query.type = type;
     }
 
-    // For non-HR/admins, only show their own requests
-    if (!['hr', 'admin', 'superadmin'].includes(session.user.role)) {
-      query.employeeId = session.user.id;
-    } else if (employeeId) {
-      // HR/admins can filter by specific employee
+    // Filter by employee if provided
+    if (employeeId) {
       if (isValidObjectId(employeeId)) {
         query.employeeId = employeeId;
       } else {
@@ -80,10 +78,28 @@ export async function GET(request: Request) {
       ];
     }
 
+    // Search filter (employee name or email)
+    if (search) {
+      const users = await User.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      query.employeeId = { $in: users.map(u => u._id) };
+    }
+
+    // Department filter
+    if (department && department !== 'all') {
+      const users = await User.find({ department }).select('_id');
+      query.employeeId = { $in: users.map(u => u._id) };
+    }
+
     const leaveRequests = await LeaveRequest.find(query)
-      .populate('employeeId', 'name email')
+      .populate('employeeId', 'name email department')
       .populate('reviewedBy', 'name email')
-      .sort({ startDate: -1 })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
@@ -101,74 +117,10 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('GET leave requests error:', error);
+    console.error('GET HR leave requests error:', error);
     return NextResponse.json<IApiResponse>({
       success: false,
       message: 'Failed to fetch leave requests',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
-}
-
-// Create a new leave request
-export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json<IApiResponse>({
-        success: false,
-        message: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const {
-      type,
-      startDate,
-      endDate,
-      reason,
-      attachments
-    } = await request.json();
-
-    if (!type || !startDate || !endDate || !reason) {
-      return NextResponse.json<IApiResponse>({
-        success: false,
-        message: 'Required fields: type, startDate, endDate, reason'
-      }, { status: 400 });
-    }
-
-    if (new Date(startDate) > new Date(endDate)) {
-      return NextResponse.json<IApiResponse>({
-        success: false,
-        message: 'Start date cannot be after end date'
-      }, { status: 400 });
-    }
-
-    await connectToDatabase();
-
-    const leaveRequest = await LeaveRequest.create({
-      employeeId: session.user.id,
-      type,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      reason,
-      status: 'pending',
-      attachments: attachments || []
-    });
-
-    const populatedRequest = await LeaveRequest.findById(leaveRequest._id)
-      .populate('employeeId', 'name email');
-
-    return NextResponse.json<IApiResponse>({
-      success: true,
-      data: populatedRequest,
-      message: 'Leave request created successfully'
-    });
-
-  } catch (error) {
-    console.error('POST leave request error:', error);
-    return NextResponse.json<IApiResponse>({
-      success: false,
-      message: 'Failed to create leave request',
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Search, Filter, Plus } from 'lucide-react';
 import EmployeeTaskCard from './EmployeeTaskCard';
-import EmployeeTaskModal from './EmployeeTaskModal';
+import EmployeeTaskModal from '@/components/Employee/Projects/EmployeeTaskModal';
 
 export default function EmployeeTaskList({ projectId }: { projectId?: string }) {
   const { data: session } = useSession();
