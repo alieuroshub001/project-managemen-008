@@ -27,7 +27,7 @@ export default async function LoginPage() {
           </a>
         </div>
         <div className="mt-2 text-center text-sm">
-          <span className="text-gray-600">Don't have an account? </span>
+          <span className="text-gray-600">Don&apos;t have an account? </span>
           <a 
             href="/auth/signup" 
             className="text-indigo-600 hover:text-indigo-500"

@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { X, User, Clock, ChevronRight, AlertCircle, CheckCircle, Pause, Calendar } from 'lucide-react';
+import { X, User, Calendar } from 'lucide-react';
 
 interface CreateTaskFormProps {
   projectId: string;

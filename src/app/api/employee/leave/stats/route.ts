@@ -6,7 +6,7 @@ import LeaveRequest from '@/models/LeaveRequest';
 import { IApiResponse } from '@/types';
 import mongoose from 'mongoose';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'employee') {
@@ -18,12 +18,10 @@ export async function GET(request: Request) {
 
     await connectToDatabase();
 
-    // Get current year
     const currentYear = new Date().getFullYear();
     const yearStart = new Date(currentYear, 0, 1);
     const yearEnd = new Date(currentYear + 1, 0, 1);
 
-    // Get leave stats for the current year
     const leaveStats = await LeaveRequest.aggregate([
       {
         $match: {
@@ -38,7 +36,7 @@ export async function GET(request: Request) {
             $sum: {
               $divide: [
                 { $subtract: ['$endDate', '$startDate'] },
-                1000 * 60 * 60 * 24 // Convert milliseconds to days
+                1000 * 60 * 60 * 24
               ]
             }
           },
@@ -70,12 +68,16 @@ export async function GET(request: Request) {
       }
     ]);
 
-    // Calculate total leave days (adding 1 to include both start and end dates)
-    const stats = leaveStats.reduce((acc, curr) => {
+    const stats = leaveStats.reduce<Record<string, {
+      totalDays: number;
+      approvedDays: number;
+      pendingDays: number;
+      count: number;
+    }>>((acc, curr) => {
       acc[curr._id] = {
-        totalDays: Math.ceil(curr.totalDays) + curr.count, // Add 1 day per request
+        totalDays: Math.ceil(curr.totalDays) + curr.count,
         approvedDays: Math.ceil(curr.approvedDays) + (curr.count - curr.pendingCount),
-        pendingDays: curr.pendingCount > 0 ? 
+        pendingDays: curr.pendingCount > 0 ?
           Math.ceil(curr.totalDays / curr.count) * curr.pendingCount + curr.pendingCount : 0,
         count: curr.count
       };

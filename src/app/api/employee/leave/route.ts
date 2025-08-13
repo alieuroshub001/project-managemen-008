@@ -4,17 +4,34 @@ import { authOptions } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import LeaveRequest from '@/models/LeaveRequest';
 import { IApiResponse } from '@/types';
-import mongoose from 'mongoose';
 
-// Helper function to validate ObjectId
-function isValidObjectId(id: string): boolean {
-  return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
+interface SessionUser {
+  id: string;
+  role: string;
+  email?: string;
+}
+interface SessionData {
+  user: SessionUser;
+}
+
+interface LeaveQuery {
+  employeeId: string;
+  status?: string;
+  type?: string;
+}
+
+interface CreateLeaveBody {
+  type: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  reason: string;
+  attachments?: string[]; // adjust if you store richer objects
 }
 
 // Get all leave requests for the employee
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as SessionData | null;
     if (!session?.user || session.user.role !== 'employee') {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -25,22 +42,16 @@ export async function GET(request: Request) {
     await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const status = searchParams.get('status') ?? undefined;
+    const type = searchParams.get('type') ?? undefined;
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
     const skip = (page - 1) * limit;
 
     // Build query for the employee's leave requests
-    const query: any = { employeeId: session.user.id };
-
-    if (status) {
-      query.status = status;
-    }
-
-    if (type) {
-      query.type = type;
-    }
+    const query: LeaveQuery = { employeeId: session.user.id };
+    if (status) query.status = status;
+    if (type) query.type = type;
 
     const leaveRequests = await LeaveRequest.find(query)
       .populate('reviewedBy', 'name email')
@@ -52,12 +63,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json<IApiResponse>({
       success: true,
-      data: {
-        leaveRequests,
-        page,
-        limit,
-        total
-      },
+      data: { leaveRequests, page, limit, total },
       message: 'Leave requests fetched successfully'
     });
 
@@ -74,7 +80,7 @@ export async function GET(request: Request) {
 // Create a new leave request
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as SessionData | null;
     if (!session?.user || session.user.role !== 'employee') {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -88,7 +94,7 @@ export async function POST(request: Request) {
       endDate,
       reason,
       attachments
-    } = await request.json();
+    } = (await request.json()) as CreateLeaveBody;
 
     if (!type || !startDate || !endDate || !reason) {
       return NextResponse.json<IApiResponse>({
@@ -97,7 +103,10 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    if (new Date(startDate) > new Date(endDate)) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start > end) {
       return NextResponse.json<IApiResponse>({
         success: false,
         message: 'Start date cannot be after end date'
@@ -112,14 +121,11 @@ export async function POST(request: Request) {
       status: { $in: ['pending', 'approved'] },
       $or: [
         // Existing leave starts during new leave
-        { startDate: { $gte: new Date(startDate), $lte: new Date(endDate) } },
+        { startDate: { $gte: start, $lte: end } },
         // Existing leave ends during new leave
-        { endDate: { $gte: new Date(startDate), $lte: new Date(endDate) } },
+        { endDate: { $gte: start, $lte: end } },
         // New leave spans existing leave
-        { 
-          startDate: { $lte: new Date(startDate) },
-          endDate: { $gte: new Date(endDate) }
-        }
+        { startDate: { $lte: start }, endDate: { $gte: end } }
       ]
     });
 
@@ -133,11 +139,11 @@ export async function POST(request: Request) {
     const leaveRequest = await LeaveRequest.create({
       employeeId: session.user.id,
       type,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: start,
+      endDate: end,
       reason,
       status: 'pending',
-      attachments: attachments || []
+      attachments: attachments ?? []
     });
 
     const populatedRequest = await LeaveRequest.findById(leaveRequest._id)

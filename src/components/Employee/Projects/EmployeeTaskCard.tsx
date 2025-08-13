@@ -3,16 +3,6 @@
 import { Clock, CheckCircle, AlertCircle, Pause } from 'lucide-react';
 
 export default function EmployeeTaskCard({ task, onClick }: { task: any, onClick: () => void }) {
-  const getStatusIcon = () => {
-    switch (task.status) {
-      case 'todo': return <Clock className="w-4 h-4" />;
-      case 'in_progress': return <AlertCircle className="w-4 h-4" />;
-      case 'in_review': return <AlertCircle className="w-4 h-4" />;
-      case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'blocked': return <Pause className="w-4 h-4" />;
-      default: return <AlertCircle className="w-4 h-4" />;
-    }
-  };
 
   const getStatusColor = () => {
     switch (task.status) {

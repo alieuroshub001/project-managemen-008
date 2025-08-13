@@ -10,7 +10,7 @@ import BreakModal from './BreakModal';
 import NamazModal from './NamazModal';
 import { AttendanceRecord } from './type';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface CurrentAttendanceProps {
   currentRecord: AttendanceRecord | null;
@@ -124,7 +124,7 @@ export default function CurrentAttendance({
           </div>
         ) : (
           <div>
-            <Text>You haven't checked in today</Text>
+            <Text>You haven&apos;t checked in today</Text>
             <Button 
               type="primary" 
               className="ml-4" 

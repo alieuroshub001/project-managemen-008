@@ -5,7 +5,6 @@ import connectToDatabase from '@/lib/db';
 import LeaveRequest from '@/models/LeaveRequest';
 import User from '@/models/User';
 import { IApiResponse } from '@/types';
-import mongoose from 'mongoose';
 
 export async function GET(request: Request) {
   try {

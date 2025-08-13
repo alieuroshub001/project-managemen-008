@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Search, Filter, Plus } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import EmployeeTaskCard from './EmployeeTaskCard';
 import EmployeeTaskModal from '@/components/Employee/Projects/EmployeeTaskModal';
 

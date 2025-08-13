@@ -3,13 +3,22 @@ import connectToDatabase from '@/lib/db';
 import { createOTPRecord, hashPassword } from '@/lib/auth';
 import User from '@/models/User';
 import { IApiResponse } from '@/types';
+import { Error as MongooseError } from 'mongoose';
 
-const validRoles = ['superadmin', 'admin', 'hr', 'employee', 'client'];
+const validRoles = ['superadmin', 'admin', 'hr', 'employee', 'client'] as const;
+type Role = typeof validRoles[number];
+
+interface SignupRequest {
+  name: string;
+  email: string;
+  password: string;
+  role?: Role;
+}
 
 export async function POST(request: Request) {
   try {
     await connectToDatabase();
-    const { name, email, password, role = 'employee' } = await request.json();
+    const { name, email, password, role = 'employee' } = (await request.json()) as SignupRequest;
 
     // Validate input
     if (!name || !email || !password) {
@@ -79,20 +88,23 @@ export async function POST(request: Request) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Signup error:', error);
-    
+
     let errorMessage = 'Internal server error';
-    if (error.name === 'ValidationError') {
-      errorMessage = Object.values(error.errors).map((err: any) => err.message).join(', ');
-    } else if (error.message) {
+
+    if (error instanceof MongooseError.ValidationError) {
+      errorMessage = Object.values(error.errors)
+        .map((err: MongooseError.ValidatorError | MongooseError.CastError) => err.message)
+        .join(', ');
+    } else if (error instanceof Error && error.message) {
       errorMessage = error.message;
     }
 
     return NextResponse.json<IApiResponse>({
       success: false,
       message: errorMessage,
-      error: error.message || 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

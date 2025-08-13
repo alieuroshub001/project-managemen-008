@@ -3,11 +3,19 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Channel from '@/models/Channel';
-import Message from '@/models/Message';
 import User from '@/models/User';
 import UserChannel from '@/models/UserChannel';
 import { IApiResponse } from '@/types';
 import mongoose from 'mongoose';
+
+interface SessionUser {
+  id: string;
+  email?: string;
+}
+
+interface SessionData {
+  user: SessionUser;
+}
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -15,7 +23,7 @@ function isValidObjectId(id: string): boolean {
 }
 
 // Helper function to get user by session
-async function getUserFromSession(session: any) {
+async function getUserFromSession(session: SessionData) {
   await connectToDatabase();
   
   // If session.user.id is already a valid ObjectId, use it
@@ -23,25 +31,15 @@ async function getUserFromSession(session: any) {
     return { userId: session.user.id };
   }
   
-  // If not, try to find user by email or other identifier
-  let user;
+  // If not, try to find user by email
   if (session.user.email) {
-    user = await User.findOne({ email: session.user.email }).select('_id');
+    const user = await User.findOne({ email: session.user.email }).select('_id');
+    if (user) {
+      return { userId: user._id.toString() };
+    }
   }
   
-  if (!user) {
-    throw new Error('User not found in database');
-  }
-  
-  return { userId: user._id.toString() };
-}
-
-// Helper function to check user permissions
-async function checkUserAccess(channelId: string, userId: string) {
-  const channel = await Channel.findById(channelId);
-  if (!channel) return false;
-  
-  return channel.members.includes(userId) || channel.createdBy.toString() === userId;
+  throw new Error('User not found in database');
 }
 
 // Get all channels for the current user
@@ -55,19 +53,19 @@ export async function GET() {
       }, { status: 401 });
     }
 
-    // Get the actual user ID from the database
-    const { userId } = await getUserFromSession(session);
+    const { userId } = await getUserFromSession(session as SessionData);
 
     const channels = await Channel.find({
       members: userId
-    }).populate('createdBy', 'name email')
+    })
+      .populate('createdBy', 'name email')
       .populate('members', 'name email')
       .sort({ updatedAt: -1 });
 
     return NextResponse.json<IApiResponse>({
-        success: true,
-        data: channels,
-        message: 'Channels fetched successfully'
+      success: true,
+      data: channels,
+      message: 'Channels fetched successfully'
     });
 
   } catch (error) {
@@ -91,7 +89,12 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    const { name, description, isPrivate, members } = await request.json();
+    const { name, description, isPrivate, members } = await request.json() as {
+      name: string;
+      description?: string;
+      isPrivate?: boolean;
+      members?: string[];
+    };
     
     if (!name) {
       return NextResponse.json<IApiResponse>({
@@ -100,12 +103,10 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Get the actual user ID from the database
-    const { userId } = await getUserFromSession(session);
+    const { userId } = await getUserFromSession(session as SessionData);
 
-    // Validate member IDs
-    const validMemberIds = [];
-    if (members && Array.isArray(members)) {
+    const validMemberIds: string[] = [];
+    if (Array.isArray(members)) {
       for (const memberId of members) {
         if (isValidObjectId(memberId)) {
           validMemberIds.push(memberId);
@@ -115,11 +116,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Ensure the creator is included in members
-    const allMembers = Array.from(new Set([
-      userId,
-      ...validMemberIds
-    ]));
+    const allMembers = Array.from(new Set([userId, ...validMemberIds]));
 
     const channel = await Channel.create({
       name,
@@ -129,7 +126,6 @@ export async function POST(request: Request) {
       members: allMembers
     });
 
-    // Create user-channel relationships
     await Promise.all(
       allMembers.map(memberId => 
         UserChannel.create({
@@ -160,7 +156,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Update a channel (add/remove members, update details)
+// Update a channel
 export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -171,7 +167,13 @@ export async function PUT(request: Request) {
       }, { status: 401 });
     }
 
-    const { channelId, name, description, membersToAdd, membersToRemove } = await request.json();
+    const { channelId, name, description, membersToAdd, membersToRemove } = await request.json() as {
+      channelId: string;
+      name?: string;
+      description?: string;
+      membersToAdd?: string[];
+      membersToRemove?: string[];
+    };
     
     if (!channelId) {
       return NextResponse.json<IApiResponse>({
@@ -180,8 +182,7 @@ export async function PUT(request: Request) {
       }, { status: 400 });
     }
 
-    // Get the actual user ID from the database
-    const { userId } = await getUserFromSession(session);
+    const { userId } = await getUserFromSession(session as SessionData);
 
     await connectToDatabase();
 
@@ -193,7 +194,6 @@ export async function PUT(request: Request) {
       }, { status: 404 });
     }
 
-    // Only channel creator can modify the channel
     if (channel.createdBy.toString() !== userId) {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -201,20 +201,18 @@ export async function PUT(request: Request) {
       }, { status: 403 });
     }
 
-    // Update channel details
     if (name) channel.name = name;
     if (description) channel.description = description;
 
-    // Add new members
-    if (membersToAdd && membersToAdd.length > 0) {
-      const validNewMembers = membersToAdd.filter((memberId: string) => 
-        isValidObjectId(memberId) && !channel.members.includes(memberId)
+    if (membersToAdd?.length) {
+      const validNewMembers = membersToAdd.filter(
+        (memberId) => isValidObjectId(memberId) && !channel.members.includes(memberId)
       );
       
       channel.members.push(...validNewMembers);
       
       await Promise.all(
-        validNewMembers.map((memberId: string) => 
+        validNewMembers.map((memberId) => 
           UserChannel.create({
             userId: memberId,
             channelId: channel._id,
@@ -224,9 +222,8 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Remove members
-    if (membersToRemove && membersToRemove.length > 0) {
-      const validMembersToRemove = membersToRemove.filter((memberId: string) => isValidObjectId(memberId));
+    if (membersToRemove?.length) {
+      const validMembersToRemove = membersToRemove.filter((memberId) => isValidObjectId(memberId));
       
       channel.members = channel.members.filter(
         (memberId) => !validMembersToRemove.includes(memberId.toString())

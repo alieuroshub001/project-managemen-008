@@ -4,7 +4,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Project from '@/models/Project';
-import User from '@/models/User';
 import { IApiResponse } from '@/types';
 import mongoose from 'mongoose';
 

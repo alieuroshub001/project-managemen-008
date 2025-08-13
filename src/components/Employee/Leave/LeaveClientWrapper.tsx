@@ -9,7 +9,7 @@ type LeaveContextType = {
 const LeaveContext = createContext<LeaveContextType | undefined>(undefined);
 
 export function LeaveClientWrapper({ children }: { children: React.ReactNode }) {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [, setRefreshTrigger] = useState(0);
 
   const refreshRequests = () => {
     setRefreshTrigger(prev => prev + 1);

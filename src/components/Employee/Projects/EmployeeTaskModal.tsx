@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { X, User, Clock, ChevronRight, AlertCircle, CheckCircle, Pause, Calendar, MessageSquare, Paperclip } from 'lucide-react';
+import { X, MessageSquare, Paperclip } from 'lucide-react';
 
 interface EmployeeTaskModalProps {
   taskId: string;
@@ -72,31 +72,7 @@ export default function EmployeeTaskModal({ taskId, onClose }: EmployeeTaskModal
     }
   };
 
-  const getStatusIcon = () => {
-    if (!task) return <AlertCircle className="w-5 h-5" />;
-    
-    switch (task.status) {
-      case 'todo': return <Clock className="w-5 h-5" />;
-      case 'in_progress': return <ChevronRight className="w-5 h-5" />;
-      case 'in_review': return <AlertCircle className="w-5 h-5" />;
-      case 'completed': return <CheckCircle className="w-5 h-5" />;
-      case 'blocked': return <Pause className="w-5 h-5" />;
-      default: return <AlertCircle className="w-5 h-5" />;
-    }
-  };
 
-  const getStatusColor = () => {
-    if (!task) return 'bg-gray-100 text-gray-800';
-    
-    switch (task.status) {
-      case 'todo': return 'bg-gray-100 text-gray-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'in_review': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'blocked': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   if (!task) {
     return (

@@ -12,10 +12,29 @@ function isValidObjectId(id: string): boolean {
   return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
 }
 
+interface SessionUser {
+  id: string;
+  role: string;
+  email?: string;
+}
+interface SessionData {
+  user: SessionUser;
+}
+
+interface EmployeeQuery {
+  department?: string;
+  employmentType?: string;
+  $or?: Array<
+    | { employeeId: { $regex: string; $options: string } }
+    | { department: { $regex: string; $options: string } }
+    | { position: { $regex: string; $options: string } }
+  >;
+}
+
 // Get all employees (with optional filtering)
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as SessionData | null;
     if (!session?.user) {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -34,15 +53,15 @@ export async function GET(request: Request) {
     await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
-    const department = searchParams.get('department');
-    const employmentType = searchParams.get('employmentType');
-    const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const department = searchParams.get('department') ?? undefined;
+    const employmentType = searchParams.get('employmentType') ?? undefined;
+    const search = searchParams.get('search') ?? undefined;
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
     const skip = (page - 1) * limit;
 
     // Build query
-    const query: any = {};
+    const query: EmployeeQuery = {};
 
     // Filter by department if provided
     if (department) {
@@ -56,10 +75,11 @@ export async function GET(request: Request) {
 
     // Text search if provided
     if (search) {
+      const rx = { $regex: search, $options: 'i' as const };
       query.$or = [
-        { employeeId: { $regex: search, $options: 'i' } },
-        { department: { $regex: search, $options: 'i' } },
-        { position: { $regex: search, $options: 'i' } }
+        { employeeId: rx },
+        { department: rx },
+        { position: rx }
       ];
     }
 
@@ -96,7 +116,7 @@ export async function GET(request: Request) {
 // Create a new employee profile
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as SessionData | null;
     if (!session?.user) {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -123,7 +143,18 @@ export async function POST(request: Request) {
       manager,
       skills,
       emergencyContacts
-    } = await request.json();
+    } = await request.json() as {
+      userId: string;
+      employeeId: string;
+      department: string;
+      position: string;
+      hireDate: string | Date;
+      salary?: number;
+      employmentType?: string;
+      manager?: string;
+      skills?: string[];
+      emergencyContacts?: Array<{ name: string; phone: string; relation?: string }>;
+    };
 
     if (!userId || !employeeId || !department || !position || !hireDate) {
       return NextResponse.json<IApiResponse>({

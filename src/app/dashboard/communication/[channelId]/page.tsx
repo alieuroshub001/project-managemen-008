@@ -48,7 +48,7 @@ export default async function ChannelPage({
 
 // Generate metadata for the page
 export async function generateMetadata({
-  params,
+
 }: {
   params: { channelId: string };
 }) {

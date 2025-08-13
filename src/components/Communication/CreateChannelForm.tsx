@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { UserRole } from '@/types';
-import { X, Users, Lock } from 'lucide-react';
+import { X, Lock } from 'lucide-react';
 
 interface User {
   _id: string;

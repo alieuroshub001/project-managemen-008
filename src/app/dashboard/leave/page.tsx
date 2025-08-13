@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { LeaveClientWrapper } from '@/components/Employee/Leave/LeaveClientWrapper';
 import LeaveRequestList from '@/components/Employee/Leave/LeaveRequestList';
-import { CalendarPlus, Clock, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function LeavePage() {

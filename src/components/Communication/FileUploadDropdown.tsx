@@ -166,22 +166,7 @@ export default function FileUpload({
     }
   };
 
-  const getFileIcon = (type: string) => {
-    switch (type) {
-      case 'image': return <Image className="w-4 h-4" />;
-      case 'video': return <Video className="w-4 h-4" />;
-      case 'audio': return <Music className="w-4 h-4" />;
-      default: return <FileText className="w-4 h-4" />;
-    }
-  };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
 
   return (
     <div className="w-full">

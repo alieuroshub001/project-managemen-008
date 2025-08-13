@@ -5,7 +5,6 @@ import { authOptions } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Project from '@/models/Project';
 import Task from '@/models/Task';
-import User from '@/models/User';
 import { IApiResponse } from '@/types';
 import mongoose from 'mongoose';
 

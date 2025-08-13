@@ -9,31 +9,36 @@ import UserChannel from '@/models/UserChannel';
 import { IApiResponse } from '@/types';
 import mongoose from 'mongoose';
 
+interface SessionUser {
+  id: string;
+  email?: string;
+}
+
+interface SessionData {
+  user: SessionUser;
+}
+
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
   return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
 }
 
 // Helper function to get user by session
-async function getUserFromSession(session: any) {
+async function getUserFromSession(session: SessionData) {
   await connectToDatabase();
-  
-  // If session.user.id is already a valid ObjectId, use it
+
   if (isValidObjectId(session.user.id)) {
     return { userId: session.user.id };
   }
-  
-  // If not, try to find user by email or other identifier
-  let user;
+
   if (session.user.email) {
-    user = await User.findOne({ email: session.user.email }).select('_id');
+    const user = await User.findOne({ email: session.user.email }).select('_id');
+    if (user) {
+      return { userId: user._id.toString() };
+    }
   }
-  
-  if (!user) {
-    throw new Error('User not found in database');
-  }
-  
-  return { userId: user._id.toString() };
+
+  throw new Error('User not found in database');
 }
 
 // Get channel details and messages
@@ -46,35 +51,31 @@ export async function GET(
     if (!session?.user) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Unauthorized'
+        message: 'Unauthorized',
       }, { status: 401 });
     }
 
-    // Validate channelId
     if (!isValidObjectId(params.channelId)) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Invalid channel ID'
+        message: 'Invalid channel ID',
       }, { status: 400 });
     }
 
-    // Get the actual user ID from the database
-    const { userId } = await getUserFromSession(session);
+    const { userId } = await getUserFromSession(session as SessionData);
 
-    // Check if user has access to the channel
     const userChannel = await UserChannel.findOne({
       channelId: params.channelId,
-      userId: userId
+      userId,
     });
-    
+
     if (!userChannel) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'You do not have access to this channel'
+        message: 'You do not have access to this channel',
       }, { status: 403 });
     }
 
-    // Get channel details
     const channel = await Channel.findById(params.channelId)
       .populate('createdBy', 'name email')
       .populate('members', 'name email');
@@ -82,11 +83,10 @@ export async function GET(
     if (!channel) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Channel not found'
+        message: 'Channel not found',
       }, { status: 404 });
     }
 
-    // Get messages (paginated)
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -98,20 +98,19 @@ export async function GET(
       .limit(limit)
       .populate('sender', 'name email');
 
-    // Update last read time
     userChannel.lastRead = new Date();
     await userChannel.save();
 
     return NextResponse.json<IApiResponse>({
-        success: true,
-        data: {
-            channel,
-            messages: messages.reverse(), // Reverse to show oldest first in the UI
-            page,
-            limit,
-            total: await Message.countDocuments({ channelId: params.channelId })
-        },
-        message: 'Channel data fetched successfully'
+      success: true,
+      data: {
+        channel,
+        messages: messages.reverse(),
+        page,
+        limit,
+        total: await Message.countDocuments({ channelId: params.channelId }),
+      },
+      message: 'Channel data fetched successfully',
     });
 
   } catch (error) {
@@ -119,7 +118,7 @@ export async function GET(
     return NextResponse.json<IApiResponse>({
       success: false,
       message: 'Failed to fetch channel details',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
 }
@@ -134,40 +133,40 @@ export async function POST(
     if (!session?.user) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Unauthorized'
+        message: 'Unauthorized',
       }, { status: 401 });
     }
 
-    const { content, attachments } = await request.json();
-    
+    const { content, attachments } = await request.json() as {
+      content?: string;
+      attachments?: string[];
+    };
+
     if (!content && (!attachments || attachments.length === 0)) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Message content or attachments are required'
+        message: 'Message content or attachments are required',
       }, { status: 400 });
     }
 
-    // Validate channelId
     if (!isValidObjectId(params.channelId)) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Invalid channel ID'
+        message: 'Invalid channel ID',
       }, { status: 400 });
     }
 
-    // Get the actual user ID from the database
-    const { userId } = await getUserFromSession(session);
+    const { userId } = await getUserFromSession(session as SessionData);
 
-    // Check if user has access to the channel
     const userChannel = await UserChannel.findOne({
       channelId: params.channelId,
-      userId: userId
+      userId,
     });
-    
+
     if (!userChannel) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'You do not have access to this channel'
+        message: 'You do not have access to this channel',
       }, { status: 403 });
     }
 
@@ -175,10 +174,9 @@ export async function POST(
       content,
       sender: userId,
       channelId: params.channelId,
-      attachments
+      attachments,
     });
 
-    // Update channel's updatedAt to show it's active
     await Channel.findByIdAndUpdate(params.channelId, { updatedAt: new Date() });
 
     const populatedMessage = await Message.findById(message._id)
@@ -187,7 +185,7 @@ export async function POST(
     return NextResponse.json<IApiResponse>({
       success: true,
       data: populatedMessage,
-      message: 'Message sent successfully'
+      message: 'Message sent successfully',
     });
 
   } catch (error) {
@@ -195,7 +193,7 @@ export async function POST(
     return NextResponse.json<IApiResponse>({
       success: false,
       message: 'Failed to send message',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
 }

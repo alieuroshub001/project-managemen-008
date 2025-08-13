@@ -65,7 +65,7 @@ export default async function NewChannelPage() {
                       <ul className="list-disc pl-5 space-y-1">
                         <li>Private channels are only visible to invited members</li>
                         <li>You can add team members after creating the channel</li>
-                        <li>As the creator, you'll have full management permissions</li>
+                        <li>As the creator, you&apos;ll have full management permissions</li>
                         <li>Members can share files, images, and documents</li>
                       </ul>
                     </div>

@@ -19,7 +19,7 @@ const statusColors: Record<string, string> = {
   cancelled: 'gray',
 };
 
-export default function LeaveRequestDetail({ requestId, userId, role }: Props) {
+export default function LeaveRequestDetail({ requestId }: Props) {
   const router = useRouter();
   // Fallback to route param if prop not provided (supports direct route usage)
   const routeParams = useParams<{ requestId: string }>();

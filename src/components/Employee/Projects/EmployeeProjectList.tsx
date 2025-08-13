@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Search, Filter, Clock, CheckCircle, AlertCircle, Pause, XCircle } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import EmployeeProjectCard from './EmployeeProjectCard';
 
 export default function EmployeeProjectList() {

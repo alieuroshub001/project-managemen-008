@@ -3,9 +3,26 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import AttendanceRecord from '@/models/AttendanceRecord';
-import User from '@/models/User';
 import { IApiResponse } from '@/types';
 import mongoose from 'mongoose';
+
+interface AttendanceQuery {
+  employeeId?: string;
+  date?: {
+    $gte?: Date;
+    $lte?: Date;
+  };
+  status?: string;
+}
+
+interface SessionUser {
+  id: string;
+  role: string;
+  email?: string;
+}
+interface SessionData {
+  user: SessionUser;
+}
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -15,7 +32,7 @@ function isValidObjectId(id: string): boolean {
 // Get attendance records
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as SessionData | null;
     if (!session?.user) {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -30,12 +47,12 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
     const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
     const skip = (page - 1) * limit;
 
     // Build query
-    const query: any = {};
+    const query: AttendanceQuery = {};
 
     // For non-HR/admins, only show their own records
     if (!['hr', 'admin', 'superadmin'].includes(session.user.role)) {
@@ -79,12 +96,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json<IApiResponse>({
       success: true,
-      data: {
-        attendanceRecords,
-        page,
-        limit,
-        total
-      },
+      data: { attendanceRecords, page, limit, total },
       message: 'Attendance records fetched successfully'
     });
 
@@ -101,7 +113,7 @@ export async function GET(request: Request) {
 // Create or update attendance record (check-in/check-out)
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions)) as SessionData | null;
     if (!session?.user) {
       return NextResponse.json<IApiResponse>({
         success: false,
@@ -109,7 +121,7 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    const { action } = await request.json(); // 'check-in' or 'check-out'
+    const { action } = await request.json() as { action: 'check-in' | 'check-out' };
 
     if (!action || (action !== 'check-in' && action !== 'check-out')) {
       return NextResponse.json<IApiResponse>({
@@ -123,7 +135,6 @@ export async function POST(request: Request) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check if record exists for today
     let record = await AttendanceRecord.findOne({
       employeeId: session.user.id,
       date: today
@@ -139,14 +150,13 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
-      // Create new check-in record
       record = await AttendanceRecord.create({
         employeeId: session.user.id,
         date: today,
         checkIn: now,
-        status: now.getHours() > 9 ? 'late' : 'present' // Simple late check
+        status: now.getHours() > 9 ? 'late' : 'present'
       });
-    } else { // check-out
+    } else {
       if (!record) {
         return NextResponse.json<IApiResponse>({
           success: false,
@@ -161,15 +171,13 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
-      // Update with check-out time
       record.checkOut = now;
-      
-      // Calculate if it's a half-day (less than 4 hours)
+
       const hoursWorked = (now.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
       if (hoursWorked < 4) {
         record.status = 'half-day';
       }
-      
+
       await record.save();
     }
 

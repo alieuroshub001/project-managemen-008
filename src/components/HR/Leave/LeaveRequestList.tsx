@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { IApiResponse, ILeaveRequest, UserRole } from '@/types';
-import { Button, Table, Tag, Pagination, Select, Space, Badge, Input } from 'antd';
+import { IApiResponse, ILeaveRequest } from '@/types';
+import { Button, Table, Tag, Pagination, Select, Space, Input } from 'antd';
 import type { TableProps } from 'antd';
 import Link from 'next/link';
 import dayjs from 'dayjs';

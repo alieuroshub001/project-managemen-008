@@ -11,9 +11,7 @@ interface MobileChannelSelectorProps {
 }
 
 export default function MobileChannelSelector({ 
-  role, 
-  currentChannelId 
-}: MobileChannelSelectorProps) {
+  role}: MobileChannelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (

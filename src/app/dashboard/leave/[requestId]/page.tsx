@@ -59,7 +59,6 @@ export default async function LeaveRequestPage({
 }
 
 export async function generateMetadata({
-  params,
 }: {
   params: { requestId: string };
 }) {

@@ -25,7 +25,7 @@ export default function CreateProjectForm() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
-  const [client, setClient] = useState('');
+  const [client] = useState('');
   const [budget, setBudget] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');

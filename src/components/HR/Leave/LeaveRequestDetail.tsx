@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Button, Card, Descriptions, Badge, message, Popconfirm, Space, Divider } from 'antd';
+import { Button, Card, Descriptions, Badge, message, Divider } from 'antd';
 import dayjs from 'dayjs';
 import { IApiResponse, ILeaveRequest, IAttachment } from '@/types';
 
@@ -90,7 +90,7 @@ export default function HRLeaveRequestDetail() {
       loading={loading}
       extra={<Button onClick={() => router.push('/dashboard/hr/leave')}>Back to List</Button>} // Fixed path
     >
-        
+
       <Descriptions bordered column={1}>
         <Descriptions.Item label="Employee">
           {(leaveRequest.employeeId as any)?.name || 'Unknown Employee'}

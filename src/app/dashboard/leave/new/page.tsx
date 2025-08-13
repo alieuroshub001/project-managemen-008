@@ -1,4 +1,3 @@
-import { UserRole } from '@/types';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -59,7 +58,7 @@ export default async function NewLeaveRequestPage() {
                         <li>Submit requests at least 3 days in advance for approval</li>
                         <li>Emergency leave requires documentation</li>
                         <li>Check your remaining leave balance before applying</li>
-                        <li>You'll receive email notifications about your request status</li>
+                        <li>You&apos;ll receive email notifications about your request status</li>
                       </ul>
                     </div>
                   </div>

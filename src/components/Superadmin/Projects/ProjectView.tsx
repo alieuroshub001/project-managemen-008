@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Clock, CheckCircle, AlertCircle, Pause, XCircle, ChevronRight, Users, Settings, List, BarChart2, Plus } from 'lucide-react';
 import Link from 'next/link';
-import TaskList from '../TaskList';
+import TaskList from './TaskList';
 import ProjectStats from './ProjectStats';
 import CreateTaskForm from './CreateTaskForm';
 
