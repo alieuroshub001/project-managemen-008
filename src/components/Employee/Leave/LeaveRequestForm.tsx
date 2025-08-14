@@ -13,7 +13,7 @@ const { TextArea } = Input;
 
 type Props = {
   userId?: string;
-  requestId?: string; // ← NEW: for edit route
+  requestId?: string;
   initialValues?: {
     _id?: string;
     type?: string;
@@ -67,7 +67,6 @@ export default function LeaveRequestForm({ userId, requestId, initialValues }: P
           reason: req.reason,
           dates: [dayjs(req.startDate), dayjs(req.endDate)],
         });
-        // Optionally map existing attachments to UploadFile (names only)
         const initialFiles: UploadFile[] =
           (req.attachments || []).map((n, idx) => ({
             uid: String(idx),
@@ -95,12 +94,11 @@ export default function LeaveRequestForm({ userId, requestId, initialValues }: P
       setLoading(true);
 
       const payload = {
-        userId,
         type: values.type,
         startDate: values.dates[0].toDate().toISOString(),
         endDate: values.dates[1].toDate().toISOString(),
         reason: values.reason,
-        attachments: fileList.map((f) => f.name as string),
+        attachments: fileList.map((f) => f.url || f.name),
       };
 
       const url = isEdit
@@ -111,7 +109,11 @@ export default function LeaveRequestForm({ userId, requestId, initialValues }: P
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          // For edit, explicitly set that this is an update, not a cancellation
+          action: isEdit ? 'update' : undefined
+        }),
       });
 
       const data: IApiResponse = await res.json();
@@ -134,7 +136,6 @@ export default function LeaveRequestForm({ userId, requestId, initialValues }: P
     setFileList(fileList);
   };
 
-  // Initial values coming from server prop (optional)
   const hydratedInitial =
     initialValues?._id && !existing
       ? {

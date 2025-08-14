@@ -70,13 +70,11 @@ export default function DashboardNav({ role }: DashboardNavProps) {
     ],
     employee: [
       { href: '/dashboard/projects/my-projects', name: 'My Projects', icon: FolderKanban },
-      { href: '/dashboard/projects/tasks', name: 'My Tasks', icon: FileText },
       { href: '/dashboard/time-tracking', name: 'Time Tracking', icon: Clock },
       { href: '/dashboard/employee/profile', name: 'My Profile', icon: User },
       { href: '/dashboard/leave', name: 'Leave Requests', icon: Calendar },
       { href: '/dashboard/employee/attendance', name: 'My Attendance', icon: Clock },
       { href: '/dashboard/communication', name: 'Communication', icon: MessageSquare },
-      { href: '/dashboard/reporting/personal', name: 'My Reports', icon: BarChart3 },
     ],
     client: [
       { href: '/dashboard/projects/client-projects', name: 'My Projects', icon: FolderKanban },
@@ -87,7 +85,7 @@ export default function DashboardNav({ role }: DashboardNavProps) {
     ],
   };
 
-  const getSectionTitle = (role: UserRole): string => {
+  const getSectionTitle = (r: UserRole): string => {
     const titles = {
       superadmin: 'System Management',
       admin: 'Administration',
@@ -95,12 +93,11 @@ export default function DashboardNav({ role }: DashboardNavProps) {
       employee: 'My Workspace',
       client: 'Client Portal'
     };
-    return titles[role];
+    return titles[r];
   };
 
   const NavItem = ({ link, isBase = false }: { link: NavLink; isBase?: boolean }) => {
     const IconComponent = link.icon;
-    
     return (
       <Link
         href={link.href}
@@ -116,19 +113,17 @@ export default function DashboardNav({ role }: DashboardNavProps) {
         `}
         title={isCollapsed ? link.name : ''}
       >
-        {/* Glowing effect for collapsed state */}
         {isCollapsed && (
           <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-indigo-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         )}
-        
-        <IconComponent 
+        <IconComponent
           className={`
             flex-shrink-0 transition-all duration-300 relative z-10
             ${isBase ? 'w-5 h-5' : 'w-4 h-4'}
             ${isCollapsed ? 'group-hover:text-white group-hover:drop-shadow-sm' : 'group-hover:text-blue-600 mr-3'}
-          `} 
+          `}
         />
-        <span 
+        <span
           className={`
             transition-all duration-500 truncate font-medium
             ${isCollapsed ? 'w-0 opacity-0 absolute' : 'w-auto opacity-100'}
@@ -136,8 +131,6 @@ export default function DashboardNav({ role }: DashboardNavProps) {
         >
           {link.name}
         </span>
-        
-        {/* Animated background for expanded state */}
         {!isCollapsed && (
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/5 group-hover:to-indigo-500/10 rounded-xl transition-all duration-300"></div>
         )}
@@ -146,10 +139,12 @@ export default function DashboardNav({ role }: DashboardNavProps) {
   };
 
   return (
-    <nav 
+    <aside
       className={`
-        bg-white/95 backdrop-blur-xl h-screen transition-all duration-500 ease-out relative z-10
+        sticky top-0
+        bg-white/95 backdrop-blur-xl transition-all duration-500 ease-out z-10
         ${isCollapsed ? 'w-20 ml-4 my-4 rounded-2xl shadow-2xl border border-gray-200/50' : 'w-64 border-r border-gray-200/30 shadow-xl'}
+        h-dvh
       `}
     >
       <div className="flex flex-col h-full">
@@ -183,17 +178,15 @@ export default function DashboardNav({ role }: DashboardNavProps) {
           </button>
         </div>
 
-        {/* Navigation content */}
+        {/* Scrollable nav content */}
         <div className={`
           flex-1 overflow-y-auto space-y-1 transition-all duration-300
           ${isCollapsed ? 'p-2 pt-4' : 'p-4'}
         `}>
-          {/* Base navigation */}
           {baseLinks.map((link) => (
-            <NavItem key={link.href} link={link} isBase={true} />
+            <NavItem key={link.href} link={link} isBase />
           ))}
 
-          {/* Role-specific navigation */}
           <div className={`transition-all duration-300 ${isCollapsed ? 'pt-2' : 'pt-6'}`}>
             <div 
               className={`
@@ -243,6 +236,6 @@ export default function DashboardNav({ role }: DashboardNavProps) {
           </div>
         </div>
       </div>
-    </nav>
+    </aside>
   );
 }

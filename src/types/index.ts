@@ -186,29 +186,16 @@ export interface IEmployeeProfile {
 }
 
 export interface ILeaveRequest {
-  _id: string | number; // Use string if it's MongoDB ObjectId, number if it's SQL auto ID
-  id: string;
-  employeeId: string; // User ID
+  _id: string; // Standardize on string for MongoDB ObjectId
+  employeeId: string;
   type: 'vacation' | 'sick' | 'personal' | 'bereavement' | 'other';
   startDate: Date;
   endDate: Date;
   reason: string;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  reviewedBy?: string; // User ID of approver
+  reviewedBy?: string;
   reviewedAt?: Date;
   attachments?: IAttachment[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IAttendanceRecord {
-  id: string;
-  employeeId: string; // User ID
-  date: Date;
-  checkIn: Date;
-  checkOut?: Date;
-  status: 'present' | 'absent' | 'late' | 'half-day' | 'on-leave';
-  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -238,33 +225,59 @@ export interface IOnboardingTask {
   updatedAt: Date;
 }
 
+export type ShiftType = 'morning' | 'evening' | 'night' | 'flexible';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'half-day' | 'on-leave' | 'remote';
+
+export interface IBreak {
+  start: Date;
+  end?: Date;
+  type?: 'break' | 'prayer' | 'meal' | 'other';
+  notes?: string;
+}
+
+export interface INamaz {
+  start: Date;
+  end?: Date;
+  type?: 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
+}
+
+export interface ITaskCompleted {
+  task: string;
+  description?: string;
+  hoursSpent?: number;
+  projectId?: string; // Reference to project if applicable
+}
+
 export interface IAttendanceRecord {
   id: string;
   employeeId: string;
-  date: Date;
-  shift: 'morning' | 'evening' | 'night';
-  checkIn: Date;
-  checkOut?: Date;
+  date: Date; // Just date portion (without time)
+  checkIn: Date; // Full datetime
+  checkOut?: Date; // Full datetime
+  checkInLocation?: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+    address?: string;
+  };
+  checkOutLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address?: string;
+  };
   checkInReason?: string;
   checkOutReason?: string;
-  status: 'present' | 'absent' | 'late' | 'half-day' | 'on-leave';
-  tasksCompleted?: Array<{
-    task: string;
-    description?: string;
-    hoursSpent?: number;
-  }>;
-  breaks?: Array<{
-    start: Date;
-    end?: Date;
-  }>;
+  status: AttendanceStatus;
+  shift?: ShiftType; // Made optional to support flexible schedules
+  tasksCompleted?: ITaskCompleted[];
+  breaks?: IBreak[];
   totalBreakMinutes?: number;
-  namaz?: Array<{
-    start: Date;
-    end?: Date;
-  }>;
+  namaz?: INamaz[];
   totalNamazMinutes?: number;
   totalHours?: number;
   notes?: string;
+  isRemote?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
+
+

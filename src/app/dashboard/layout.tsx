@@ -17,16 +17,15 @@ export default async function DashboardLayout({
     redirect('/auth/login');
   }
 
-  // Type assertion to ensure role matches UserRole
   const userRole = session.user.role as UserRole;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        {/* Sidebar Navigation */}
+      <div className="mx-auto flex max-w-[1600px]">
+        {/* Sticky sidebar */}
         <DashboardNav role={userRole} />
-        
-        {/* Main Content */}
+
+        {/* Main content (let the page scroll; do not add overflow here) */}
         <div className="flex-1 p-6">
           <div className="flex justify-between items-start mb-6">
             <h1 className="text-2xl font-bold">

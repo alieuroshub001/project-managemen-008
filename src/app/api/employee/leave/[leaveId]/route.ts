@@ -65,6 +65,7 @@ export async function GET(
 }
 
 // Cancel a leave request
+// Update a leave request
 export async function PUT(
   request: Request,
   { params }: { params: { leaveId: string } }
@@ -85,6 +86,48 @@ export async function PUT(
       }, { status: 400 });
     }
 
+    const { action, ...updateData } = await request.json();
+
+    // If action is 'update', handle as edit operation
+    if (action === 'update') {
+      await connectToDatabase();
+
+      const leaveRequest = await LeaveRequest.findOne({
+        _id: params.leaveId,
+        employeeId: session.user.id,
+        status: 'pending' // Can only edit pending requests
+      });
+
+      if (!leaveRequest) {
+        return NextResponse.json<IApiResponse>({
+          success: false,
+          message: 'Leave request not found, not yours, or cannot be edited'
+        }, { status: 404 });
+      }
+
+      // Update the leave request with new data
+      Object.assign(leaveRequest, {
+        type: updateData.type,
+        startDate: new Date(updateData.startDate),
+        endDate: new Date(updateData.endDate),
+        reason: updateData.reason,
+        attachments: updateData.attachments || []
+      });
+
+      await leaveRequest.save();
+
+      const populatedRequest = await LeaveRequest.findById(leaveRequest._id)
+        .populate('employeeId', 'name email')
+        .populate('reviewedBy', 'name email');
+
+      return NextResponse.json<IApiResponse>({
+        success: true,
+        data: populatedRequest,
+        message: 'Leave request updated successfully'
+      });
+    }
+
+    // Otherwise, handle as cancellation (existing behavior)
     await connectToDatabase();
 
     const leaveRequest = await LeaveRequest.findOne({
@@ -120,12 +163,13 @@ export async function PUT(
     console.error('PUT leave request error:', error);
     return NextResponse.json<IApiResponse>({
       success: false,
-      message: 'Failed to cancel leave request',
+      message: 'Failed to update leave request',
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
 
+// Delete a leave request (only if pending)
 // Delete a leave request (only if pending)
 export async function DELETE(
   request: Request,
@@ -149,18 +193,26 @@ export async function DELETE(
 
     await connectToDatabase();
 
-    const leaveRequest = await LeaveRequest.findOneAndDelete({
+    const leaveRequest = await LeaveRequest.findOne({
       _id: params.leaveId,
-      employeeId: session.user.id,
-      status: 'pending' // Can only delete pending requests
+      employeeId: session.user.id
     });
 
     if (!leaveRequest) {
       return NextResponse.json<IApiResponse>({
         success: false,
-        message: 'Leave request not found, not yours, or cannot be deleted'
+        message: 'Leave request not found or not yours'
       }, { status: 404 });
     }
+
+    if (leaveRequest.status !== 'pending') {
+      return NextResponse.json<IApiResponse>({
+        success: false,
+        message: 'Only pending leave requests can be deleted'
+      }, { status: 400 });
+    }
+
+    await LeaveRequest.deleteOne({ _id: params.leaveId });
 
     return NextResponse.json<IApiResponse>({
       success: true,

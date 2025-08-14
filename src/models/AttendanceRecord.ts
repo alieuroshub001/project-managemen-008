@@ -1,20 +1,61 @@
+// models/AttendanceRecord.ts - FIXED VERSION: Removed unique index constraint
 import mongoose, { Schema, Model } from 'mongoose';
-import { IAttendanceRecord } from '@/types';
+import { 
+  IAttendanceRecord, 
+  IBreak, 
+  INamaz, 
+  ITaskCompleted,
+  ShiftType,
+  AttendanceStatus
+} from '@/types';
 
-const BreakSchema = new Schema({
+const BreakSchema = new Schema<IBreak>({
   start: { type: Date, required: true },
   end: { type: Date },
+  type: { 
+    type: String, 
+    enum: ['break', 'prayer', 'meal', 'other'],
+    default: 'break'
+  },
+  notes: { type: String, maxlength: 200 }
 });
 
-const NamazSchema = new Schema({
+const NamazSchema = new Schema<INamaz>({
   start: { type: Date, required: true },
   end: { type: Date },
+  type: {
+    type: String,
+    enum: ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
+  }
 });
 
-const TaskSchema = new Schema({
+const TaskSchema = new Schema<ITaskCompleted>({
   task: { type: String, required: true },
   description: { type: String },
-  hoursSpent: { type: Number },
+  hoursSpent: { type: Number, min: 0 },
+  projectId: { type: Schema.Types.ObjectId, ref: 'Project' }
+});
+
+const LocationSchema = new Schema({
+  type: { 
+    type: String, 
+    enum: ['Point'],
+    required: true,
+    default: 'Point'
+  },
+  coordinates: {
+    type: [Number], // [longitude, latitude]
+    required: true,
+    validate: {
+      validator: (coords: number[]) => {
+        return Array.isArray(coords) && coords.length === 2 && 
+               coords[0] >= -180 && coords[0] <= 180 &&
+               coords[1] >= -90 && coords[1] <= 90;
+      },
+      message: 'Invalid coordinates format. Expected [longitude, latitude] with valid values.'
+    }
+  },
+  address: { type: String }
 });
 
 const AttendanceRecordSchema: Schema = new Schema(
@@ -24,28 +65,115 @@ const AttendanceRecordSchema: Schema = new Schema(
       ref: 'User', 
       required: true 
     },
-    date: { type: Date, required: true },
-    shift: {
-      type: String,
-      enum: ['morning', 'evening', 'night'],
-      required: true
+    date: { 
+      type: Date, 
+      required: true,
+      transform: (val: Date) => {
+        val.setHours(0, 0, 0, 0);
+        return val;
+      }
     },
-    checkIn: { type: Date, required: true },
-    checkOut: { type: Date },
-    checkInReason: { type: String },
-    checkOutReason: { type: String },
+    checkIn: { 
+      type: Date, 
+      required: true,
+      validate: {
+        validator: function(value: Date) {
+          return value <= new Date();
+        },
+        message: 'Check-in time cannot be in the future'
+      }
+    },
+    checkOut: { 
+      type: Date,
+      validate: [
+        {
+          validator: function(this: any, value: Date) {
+            return !value || value > this.checkIn;
+          },
+          message: 'Check-out time must be after check-in time'
+        },
+        {
+          validator: function(value: Date) {
+            return !value || value <= new Date();
+          },
+          message: 'Check-out time cannot be in the future'
+        }
+      ]
+    },
+    checkInLocation: {
+      type: LocationSchema,
+      validate: {
+        validator: function(this: any, value: any) {
+          if (this.isRemote && !value) {
+            return false;
+          }
+          return true;
+        },
+        message: 'Remote check-ins require location data'
+      }
+    },
+    checkOutLocation: LocationSchema,
+    checkInReason: { 
+      type: String,
+      maxlength: 500,
+      required: function(this: any) {
+        return this.status === 'late';
+      }
+    },
+    checkOutReason: { 
+      type: String,
+      maxlength: 500 
+    },
     status: {
       type: String,
-      enum: ['present', 'absent', 'late', 'half-day', 'on-leave'],
-      default: 'present'
+      enum: ['present', 'absent', 'late', 'half-day', 'on-leave', 'remote'],
+      default: 'present',
+      validate: {
+        validator: function(this: IAttendanceRecord, value: string) {
+          if (value === 'absent' && this.checkIn) {
+            return false;
+          }
+          return true;
+        },
+        message: 'Cannot have check-in time with absent status'
+      }
+    },
+    shift: {
+      type: String,
+      enum: ['morning', 'evening', 'night', 'flexible'],
+      default: 'flexible'
     },
     tasksCompleted: [TaskSchema],
     breaks: [BreakSchema],
-    totalBreakMinutes: { type: Number, default: 0 },
+    totalBreakMinutes: { 
+      type: Number, 
+      default: 0,
+      min: 0 
+    },
     namaz: [NamazSchema],
-    totalNamazMinutes: { type: Number, default: 0 },
-    totalHours: { type: Number },
-    notes: { type: String }
+    totalNamazMinutes: { 
+      type: Number, 
+      default: 0,
+      min: 0 
+    },
+    totalHours: { 
+      type: Number,
+      min: 0,
+      max: 24 
+    },
+    isRemote: {
+      type: Boolean,
+      default: false
+    },
+    notes: { 
+      type: String,
+      maxlength: 1000 
+    },
+    deviceInfo: {
+      os: { type: String },
+      browser: { type: String },
+      ipAddress: { type: String }
+    }
   },
   { 
     timestamps: true,
@@ -61,11 +189,200 @@ const AttendanceRecordSchema: Schema = new Schema(
   }
 );
 
-// Compound index for employee and date (one record per employee per day)
-AttendanceRecordSchema.index({ employeeId: 1, date: 1 }, { unique: true });
+// UPDATED INDEXES - Removed unique constraint on employeeId + date
+// This allows multiple check-ins per day for the same employee
+AttendanceRecordSchema.index({ employeeId: 1 });
+AttendanceRecordSchema.index({ date: 1 });
+AttendanceRecordSchema.index({ checkIn: 1 });
+AttendanceRecordSchema.index({ 'checkInLocation.coordinates': '2dsphere' });
+AttendanceRecordSchema.index({ 'checkOutLocation.coordinates': '2dsphere' });
 
-const AttendanceRecord: Model<IAttendanceRecord> = 
-  mongoose.models.AttendanceRecord || 
-  mongoose.model<IAttendanceRecord>('AttendanceRecord', AttendanceRecordSchema);
+// Compound indexes for efficient queries (but NOT unique)
+AttendanceRecordSchema.index({ employeeId: 1, date: 1 }); // Removed unique: true
+AttendanceRecordSchema.index({ date: 1, status: 1, isRemote: 1 });
+
+// Add index for finding active records (without checkout)
+AttendanceRecordSchema.index({ employeeId: 1, date: 1, checkOut: 1 });
+
+// Virtuals
+AttendanceRecordSchema.virtual('calculatedHours').get(function(this: any) {
+  if (!this.checkOut) return 0;
+  
+  const diffMs = this.checkOut.getTime() - this.checkIn.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  
+  const breakHours = (this.totalBreakMinutes || 0) / 60;
+  const namazHours = (this.totalNamazMinutes || 0) / 60;
+  
+  return parseFloat(Math.max(0, diffHours - breakHours - namazHours).toFixed(2));
+});
+
+AttendanceRecordSchema.virtual('durationMinutes').get(function(this: any) {
+  if (!this.checkOut) return 0;
+  return Math.round((this.checkOut.getTime() - this.checkIn.getTime()) / (1000 * 60));
+});
+
+// Pre-save hooks
+AttendanceRecordSchema.pre('save', function(this: any, next: any) {
+  // Normalize date to midnight
+  if (this.date) {
+    this.date.setHours(0, 0, 0, 0);
+  }
+
+  // Calculate break minutes
+  if (this.breaks?.length) {
+    this.totalBreakMinutes = this.breaks.reduce((total: number, breakItem: any) => {
+      if (breakItem.end) {
+        return total + Math.round((breakItem.end.getTime() - breakItem.start.getTime()) / (1000 * 60));
+      }
+      return total;
+    }, 0);
+  }
+
+  // Calculate namaz minutes
+  if (this.namaz?.length) {
+    this.totalNamazMinutes = this.namaz.reduce((total: number, namazItem: any) => {
+      if (namazItem.end) {
+        return total + Math.round((namazItem.end.getTime() - namazItem.start.getTime()) / (1000 * 60));
+      }
+      return total;
+    }, 0);
+  }
+
+  // Calculate total hours if checked out
+  if (this.checkOut) {
+    const workedMs = this.checkOut.getTime() - this.checkIn.getTime();
+    const workedHours = workedMs / (1000 * 60 * 60);
+    const breakHours = (this.totalBreakMinutes || 0) / 60;
+    const namazHours = (this.totalNamazMinutes || 0) / 60;
+    this.totalHours = parseFloat(Math.max(0, workedHours - breakHours - namazHours).toFixed(2));
+  }
+
+  // Auto-set status based on check-in time for morning shift
+  if (this.shift === 'morning' && !this.status) {
+    const checkInHour = this.checkIn.getHours();
+    this.status = checkInHour > 9 ? 'late' : 'present';
+  }
+
+  // Auto-detect remote work if location is far from office
+  if (this.checkInLocation && this.checkInLocation.coordinates) {
+    const OFFICE_COORDS: [number, number] = [74.3587, 31.5204]; // Example: Lahore coordinates
+    const distance = haversineDistance(
+      this.checkInLocation.coordinates as [number, number],
+      OFFICE_COORDS
+    );
+    this.isRemote = distance > 5000; // 5km threshold
+  }
+
+  next();
+});
+
+// Helper function to calculate distance between coordinates (Haversine formula)
+function haversineDistance(coord1: [number, number], coord2: [number, number]): number {
+  const [lon1, lat1] = coord1;
+  const [lon2, lat2] = coord2;
+  
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+}
+
+// Static methods
+AttendanceRecordSchema.statics.getEmployeeAttendance = function(
+  employeeId: string, 
+  startDate: Date, 
+  endDate: Date
+) {
+  return this.find({
+    employeeId,
+    date: { $gte: startDate, $lte: endDate }
+  }).sort({ checkIn: 1 });
+};
+
+AttendanceRecordSchema.statics.getTeamAttendance = function(
+  teamMemberIds: string[], 
+  date: Date
+) {
+  return this.aggregate([
+    { $match: { 
+      employeeId: { $in: teamMemberIds },
+      date 
+    }},
+    { $lookup: {
+      from: 'users',
+      localField: 'employeeId',
+      foreignField: '_id',
+      as: 'employee'
+    }},
+    { $unwind: '$employee' },
+    { $project: {
+      checkIn: 1,
+      checkOut: 1,
+      status: 1,
+      totalHours: 1,
+      isRemote: 1,
+      'employee.name': 1,
+      'employee.employeeId': 1
+    }},
+    { $sort: { 'employee.name': 1 } }
+  ]);
+};
+
+AttendanceRecordSchema.statics.getLocationStats = function(
+  locationCoords: [number, number], 
+  radius: number, 
+  date: Date
+) {
+  return this.aggregate([
+    { $match: { 
+      date,
+      checkInLocation: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: locationCoords
+          },
+          $maxDistance: radius
+        }
+      }
+    }},
+    { $group: {
+      _id: '$status',
+      count: { $sum: 1 },
+      avgHours: { $avg: '$totalHours' }
+    }}
+  ]);
+};
+
+interface AttendanceRecordModel extends Model<IAttendanceRecord> {
+  getEmployeeAttendance: (
+    employeeId: string, 
+    startDate: Date, 
+    endDate: Date
+  ) => Promise<IAttendanceRecord[]>;
+  
+  getTeamAttendance: (
+    teamMemberIds: string[], 
+    date: Date
+  ) => Promise<any[]>;
+  
+  getLocationStats: (
+    locationCoords: [number, number], 
+    radius: number, 
+    date: Date
+  ) => Promise<any[]>;
+}
+
+const AttendanceRecord = (mongoose.models.AttendanceRecord || 
+  mongoose.model<IAttendanceRecord>('AttendanceRecord', AttendanceRecordSchema)) as AttendanceRecordModel;
 
 export default AttendanceRecord;

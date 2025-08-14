@@ -1,15 +1,17 @@
 // components/employee/attendance/BreakModal.tsx
 'use client';
 
-import { Modal, Button, Typography } from 'antd';
-import { useState } from 'react';
+import { Modal, Button, Typography, Select, Input, Form } from 'antd';
+import { useState, useEffect } from 'react';
 
 const { Text } = Typography;
+const { TextArea } = Input;
+const { Option } = Select;
 
 interface BreakModalProps {
   visible: boolean;
   onCancel: () => void;
-  onAction: (action: 'start' | 'end') => void;
+  onAction: (action: 'start' | 'end', breakType?: string, breakNotes?: string) => void;
   isBreakActive: boolean;
 }
 
@@ -19,41 +21,122 @@ export default function BreakModal({
   onAction,
   isBreakActive
 }: BreakModalProps) {
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  const handleConfirm = async () => {
+  const breakTypes = [
+    { value: 'break', label: 'General Break' },
+    { value: 'meal', label: 'Meal Break' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const handleConfirm = async (values?: any) => {
     setLoading(true);
     try {
-      await onAction(isBreakActive ? 'end' : 'start');
+      if (isBreakActive) {
+        await onAction('end');
+      } else {
+        await onAction('start', values?.breakType || 'break', values?.notes);
+      }
+    } catch (error) {
+      console.error('Break action failed:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleEndBreak = async () => {
+    setLoading(true);
+    try {
+      await onAction('end');
+    } catch (error) {
+      console.error('End break failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible && !isBreakActive) {
+      form.resetFields();
+    }
+  }, [visible, isBreakActive, form]);
+
+  if (isBreakActive) {
+    return (
+      <Modal
+        title="End Break"
+        open={visible}
+        onCancel={onCancel}
+        footer={[
+          <Button key="cancel" onClick={onCancel}>
+            Cancel
+          </Button>,
+          <Button 
+            key="action"
+            type="primary" 
+            onClick={handleEndBreak}
+            loading={loading}
+          >
+            End Break
+          </Button>,
+        ]}
+      >
+        <Text>
+          Are you sure you want to end your current break?
+        </Text>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
-      title={isBreakActive ? 'Back from Break' : 'Take Break'}
+      title="Start Break"
       open={visible}
       onCancel={onCancel}
-      footer={[
-        <Button key="cancel" onClick={onCancel}>
-          Cancel
-        </Button>,
-        <Button 
-          key="action"
-          type="primary" 
-          onClick={handleConfirm}
-          loading={loading}
-        >
-          Confirm
-        </Button>,
-      ]}
+      footer={null}
     >
-      <Text>
-        {isBreakActive 
-          ? 'Are you sure you want to end your break?' 
-          : 'Are you sure you want to take a break?'}
-      </Text>
+      <Form form={form} onFinish={handleConfirm} layout="vertical">
+        <Text className="block mb-4">
+          Are you sure you want to start a break?
+        </Text>
+
+        <Form.Item
+          name="breakType"
+          label="Break Type"
+          initialValue="break"
+        >
+          <Select>
+            {breakTypes.map(type => (
+              <Option key={type.value} value={type.value}>
+                {type.label}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        <Form.Item
+          name="notes"
+          label="Notes (optional)"
+        >
+          <TextArea rows={2} placeholder="Any additional notes about this break..." />
+        </Form.Item>
+
+        <Form.Item>
+          <div className="flex justify-end space-x-2">
+            <Button onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button 
+              type="primary" 
+              htmlType="submit"
+              loading={loading}
+            >
+              Start Break
+            </Button>
+          </div>
+        </Form.Item>
+      </Form>
     </Modal>
   );
 }

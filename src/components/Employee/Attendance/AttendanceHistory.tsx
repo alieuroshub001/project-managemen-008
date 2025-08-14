@@ -1,169 +1,414 @@
 // components/employee/attendance/AttendanceHistory.tsx
 'use client';
 
-import { Table, Typography } from 'antd';
+import { useState } from 'react';
+import { 
+  Card, 
+  Table, 
+  Tag, 
+  Button, 
+  Space, 
+  DatePicker, 
+  Select,
+  Row,
+  Col,
+  Tooltip,
+  Modal,
+  Typography,
+  List
+} from 'antd';
+import { 
+  EyeOutlined, 
+  ClockCircleOutlined,
+  EnvironmentOutlined,
+  FilterOutlined
+} from '@ant-design/icons';
+import { format, parseISO } from 'date-fns';
 import type { ColumnsType } from 'antd/es/table';
-import { format, parseISO, intervalToDuration, formatDuration } from 'date-fns';
-import { AttendanceRecord } from './type';
+import { AttendanceRecord } from './types';
 
-const { Title } = Typography;
+const { RangePicker } = DatePicker;
+const { Option } = Select;
+const { Text, Title } = Typography;
 
 interface AttendanceHistoryProps {
   records: AttendanceRecord[];
   loading: boolean;
+  onFilter: (params: Record<string, string>) => void;
 }
 
-export default function AttendanceHistory({ records, loading }: AttendanceHistoryProps) {
+export default function AttendanceHistory({ 
+  records, 
+  loading, 
+  onFilter 
+}: AttendanceHistoryProps) {
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'present': return 'green';
+      case 'late': return 'orange';
+      case 'absent': return 'red';
+      case 'half-day': return 'blue';
+      case 'on-leave': return 'purple';
+      case 'remote': return 'cyan';
+      default: return 'default';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'present': return 'Present';
+      case 'late': return 'Late';
+      case 'absent': return 'Absent';
+      case 'half-day': return 'Half Day';
+      case 'on-leave': return 'On Leave';
+      case 'remote': return 'Remote';
+      default: return status;
+    }
+  };
+
+  const handleFilter = () => {
+    onFilter(filters);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    onFilter({});
+  };
+
+  const showDetails = (record: AttendanceRecord) => {
+    setSelectedRecord(record);
+    setDetailsVisible(true);
+  };
+
   const columns: ColumnsType<AttendanceRecord> = [
     {
       title: 'Date',
       dataIndex: 'date',
       key: 'date',
-      render: (date) => format(parseISO(date), 'MMM dd, yyyy'),
-    },
-    {
-      title: 'Shift',
-      dataIndex: 'shift',
-      key: 'shift',
-      render: (shift) => {
-        switch (shift) {
-          case 'morning': return 'Morning (8am-4pm)';
-          case 'evening': return 'Evening (4pm-12am)';
-          case 'night': return 'Night (12am-8am)';
-          default: return shift;
-        }
-      },
-    },
-    {
-      title: 'Check In',
-      dataIndex: 'checkIn',
-      key: 'checkIn',
-      render: (checkIn) => format(parseISO(checkIn), 'hh:mm a'),
-    },
-    {
-      title: 'Check Out',
-      dataIndex: 'checkOut',
-      key: 'checkOut',
-      render: (checkOut) => checkOut ? format(parseISO(checkOut), 'hh:mm a') : '-',
-    },
-    {
-      title: 'Working Hours',
-      key: 'hours',
-      render: (_, record) => {
-        if (!record.checkOut || !record.totalHours) return '-';
-        const duration = intervalToDuration({
-          start: 0,
-          end: record.totalHours * 60 * 60 * 1000,
-        });
-        return formatDuration(duration, { format: ['hours', 'minutes'] });
-      },
+      render: (date: string) => format(parseISO(date), 'MMM dd, yyyy'),
+      sorter: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
-        switch (status) {
-          case 'present': return <span className="text-green-500">Present</span>;
-          case 'late': return <span className="text-yellow-500">Late</span>;
-          case 'half-day': return <span className="text-orange-500">Half Day</span>;
-          default: return status;
-        }
+      render: (status: string, record: AttendanceRecord) => (
+        <Space>
+          <Tag color={getStatusColor(status)}>
+            {getStatusText(status)}
+          </Tag>
+          {record.isRemote && (
+            <Tooltip title="Remote Work">
+              <Tag color="blue" icon={<EnvironmentOutlined />}>
+                Remote
+              </Tag>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Check In',
+      dataIndex: 'checkIn',
+      key: 'checkIn',
+      render: (checkIn: string) => 
+        checkIn ? format(parseISO(checkIn), 'hh:mm a') : '-',
+    },
+    {
+      title: 'Check Out',
+      dataIndex: 'checkOut',
+      key: 'checkOut',
+      render: (checkOut: string) => 
+        checkOut ? format(parseISO(checkOut), 'hh:mm a') : '-',
+    },
+    {
+      title: 'Total Hours',
+      dataIndex: 'totalHours',
+      key: 'totalHours',
+      render: (hours: number) => (
+        <Space>
+          <ClockCircleOutlined />
+          <Text>{hours?.toFixed(1) || '0'} hrs</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Shift',
+      dataIndex: 'shift',
+      key: 'shift',
+      render: (shift: string) => {
+        const shiftLabels = {
+          morning: 'Morning',
+          evening: 'Evening',
+          night: 'Night',
+          flexible: 'Flexible'
+        };
+        return shiftLabels[shift as keyof typeof shiftLabels] || shift;
       },
     },
     {
-      title: 'Breaks',
-      key: 'breaks',
+      title: 'Actions',
+      key: 'actions',
       render: (_, record) => (
-        <div>
-          {record.breaks?.map((b, i) => (
-            <div key={`break-${record.id}-${i}`}>
-              {format(parseISO(b.start), 'hh:mm a')} - {b.end ? format(parseISO(b.end), 'hh:mm a') : 'Ongoing'}
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: 'Namaz',
-      key: 'namaz',
-      render: (_, record) => (
-        <div>
-          {record.namaz?.map((n, i) => (
-            <div key={`namaz-${record.id}-${i}`}>
-              {format(parseISO(n.start), 'hh:mm a')} - {n.end ? format(parseISO(n.end), 'hh:mm a') : 'Ongoing'}
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: 'Tasks',
-      key: 'tasks',
-      render: (_, record) => (
-        <div>
-          {record.tasksCompleted?.map((t, i) => (
-            <div key={`task-${record.id}-${i}`}>
-              {t.task} ({t.hoursSpent} hrs)
-            </div>
-          ))}
-        </div>
+        <Button
+          type="text"
+          icon={<EyeOutlined />}
+          onClick={() => showDetails(record)}
+        >
+          Details
+        </Button>
       ),
     },
   ];
 
   return (
-    <>
-      <Title level={4} className="mt-6">Attendance History</Title>
-      <Table 
-        columns={columns} 
-        dataSource={records} 
-        rowKey="id"
+    <Card 
+      title="Attendance History"
+      extra={
+        <Button 
+          icon={<FilterOutlined />} 
+          onClick={handleFilter}
+          type="primary"
+        >
+          Apply Filters
+        </Button>
+      }
+    >
+      {/* Filters */}
+      <Row gutter={16} className="mb-4">
+        <Col xs={24} sm={12} md={8}>
+          <RangePicker
+            placeholder={['Start Date', 'End Date']}
+            onChange={(dates) => {
+              if (dates) {
+                setFilters({
+                  ...filters,
+                  startDate: dates[0]?.toISOString() || '',
+                  endDate: dates[1]?.toISOString() || '',
+                });
+              } else {
+                const { startDate, endDate, ...rest } = filters;
+                setFilters(rest);
+              }
+            }}
+            style={{ width: '100%' }}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Select
+            placeholder="Filter by Status"
+            allowClear
+            style={{ width: '100%' }}
+            onChange={(value) => {
+              if (value) {
+                setFilters({ ...filters, status: value });
+              } else {
+                const { status, ...rest } = filters;
+                setFilters(rest);
+              }
+            }}
+          >
+            <Option value="present">Present</Option>
+            <Option value="late">Late</Option>
+            <Option value="absent">Absent</Option>
+            <Option value="half-day">Half Day</Option>
+            <Option value="on-leave">On Leave</Option>
+            <Option value="remote">Remote</Option>
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Select
+            placeholder="Remote Work"
+            allowClear
+            style={{ width: '100%' }}
+            onChange={(value) => {
+              if (value !== undefined) {
+                setFilters({ ...filters, isRemote: value });
+              } else {
+                const { isRemote, ...rest } = filters;
+                setFilters(rest);
+              }
+            }}
+          >
+            <Option value="true">Remote Only</Option>
+            <Option value="false">Office Only</Option>
+          </Select>
+        </Col>
+        {Object.keys(filters).length > 0 && (
+          <Col xs={24} sm={12} md={8}>
+            <Button onClick={handleClearFilters}>
+              Clear Filters
+            </Button>
+          </Col>
+        )}
+      </Row>
+
+      {/* Table - FIXED: Added proper rowKey */}
+      <Table
+        columns={columns}
+        dataSource={records}
         loading={loading}
-        pagination={{ pageSize: 10 }}
-        expandable={{
-          expandedRowRender: (record) => (
-            <div className="p-4 bg-gray-50">
-              <div className="mb-2">
-                <strong>Breaks:</strong>
-                {record.breaks?.length ? (
-                  <ul className="list-disc pl-5">
-                    {record.breaks.map((b, i) => (
-                      <li key={`break-detail-${record.id}-${i}`}>
-                        {format(parseISO(b.start), 'hh:mm a')} - {b.end ? format(parseISO(b.end), 'hh:mm a') : 'Ongoing'}
-                      </li>
-                    ))}
-                  </ul>
-                ) : <span> No breaks taken</span>}
-              </div>
-              <div className="mb-2">
-                <strong>Namaz:</strong>
-                {record.namaz?.length ? (
-                  <ul className="list-disc pl-5">
-                    {record.namaz.map((n, i) => (
-                      <li key={`namaz-detail-${record.id}-${i}`}>
-                        {format(parseISO(n.start), 'hh:mm a')} - {n.end ? format(parseISO(n.end), 'hh:mm a') : 'Ongoing'}
-                      </li>
-                    ))}
-                  </ul>
-                ) : <span> No namaz recorded</span>}
-              </div>
-              <div>
-                <strong>Tasks Completed:</strong>
-                {record.tasksCompleted?.length ? (
-                  <ul className="list-disc pl-5">
-                    {record.tasksCompleted.map((t, i) => (
-                      <li key={`task-detail-${record.id}-${i}`}>
-                        {t.task} - {t.description} ({t.hoursSpent} hrs)
-                      </li>
-                    ))}
-                  </ul>
-                ) : <span> No tasks recorded</span>}
-              </div>
-            </div>
-          ),
+        rowKey={(record) => record.id || record._id || `${record.employeeId}-${record.date}`}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showTotal: (total, range) => 
+            `${range[0]}-${range[1]} of ${total} records`,
         }}
+        scroll={{ x: 800 }}
       />
-    </>
+
+      {/* Details Modal */}
+      <Modal
+        title={`Attendance Details - ${selectedRecord ? format(parseISO(selectedRecord.date), 'MMM dd, yyyy') : ''}`}
+        open={detailsVisible}
+        onCancel={() => setDetailsVisible(false)}
+        footer={null}
+        width={800}
+      >
+        {selectedRecord && (
+          <div className="space-y-6">
+            {/* Basic Info */}
+            <div>
+              <Title level={5}>Basic Information</Title>
+              <Row gutter={[16, 16]}>
+                <Col span={12}>
+                  <Text strong>Status: </Text>
+                  <Tag color={getStatusColor(selectedRecord.status)}>
+                    {getStatusText(selectedRecord.status)}
+                  </Tag>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Shift: </Text>
+                  <Text>{selectedRecord.shift}</Text>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Check In: </Text>
+                  <Text>{format(parseISO(selectedRecord.checkIn), 'hh:mm a')}</Text>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Check Out: </Text>
+                  <Text>
+                    {selectedRecord.checkOut 
+                      ? format(parseISO(selectedRecord.checkOut), 'hh:mm a') 
+                      : 'Not checked out'}
+                  </Text>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Total Hours: </Text>
+                  <Text>{selectedRecord.totalHours?.toFixed(1) || '0'} hours</Text>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Remote Work: </Text>
+                  <Text>{selectedRecord.isRemote ? 'Yes' : 'No'}</Text>
+                </Col>
+              </Row>
+            </div>
+
+            {/* Breaks */}
+            {selectedRecord.breaks && selectedRecord.breaks.length > 0 && (
+              <div>
+                <Title level={5}>Breaks ({selectedRecord.totalBreakMinutes || 0} minutes total)</Title>
+                <List
+                  dataSource={selectedRecord.breaks}
+                  renderItem={(breakItem, index) => (
+                    <List.Item key={`break-${index}`}>
+                      <div>
+                        <Text strong>Break {index + 1}: </Text>
+                        <Text>
+                          {format(parseISO(breakItem.start), 'hh:mm a')} - 
+                          {breakItem.end ? format(parseISO(breakItem.end), 'hh:mm a') : 'Ongoing'}
+                        </Text>
+                        {breakItem.type && (
+                          <Tag className="ml-2">{breakItem.type}</Tag>
+                        )}
+                        {breakItem.notes && (
+                          <div className="text-gray-500 text-sm">{breakItem.notes}</div>
+                        )}
+                      </div>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Namaz */}
+            {selectedRecord.namaz && selectedRecord.namaz.length > 0 && (
+              <div>
+                <Title level={5}>Prayer Times ({selectedRecord.totalNamazMinutes || 0} minutes total)</Title>
+                <List
+                  dataSource={selectedRecord.namaz}
+                  renderItem={(namazItem, index) => (
+                    <List.Item key={`namaz-${index}`}>
+                      <div>
+                        <Text strong>{namazItem.type || `Prayer ${index + 1}`}: </Text>
+                        <Text>
+                          {format(parseISO(namazItem.start), 'hh:mm a')} - 
+                          {namazItem.end ? format(parseISO(namazItem.end), 'hh:mm a') : 'Ongoing'}
+                        </Text>
+                      </div>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Tasks */}
+            {selectedRecord.tasksCompleted && selectedRecord.tasksCompleted.length > 0 && (
+              <div>
+                <Title level={5}>Tasks Completed</Title>
+                <List
+                  dataSource={selectedRecord.tasksCompleted}
+                  renderItem={(task, index) => (
+                    <List.Item key={`task-${index}`}>
+                      <div className="w-full">
+                        <div className="flex justify-between items-start">
+                          <Text strong>{task.task}</Text>
+                          {task.hoursSpent && (
+                            <Tag color="blue">{task.hoursSpent} hrs</Tag>
+                          )}
+                        </div>
+                        {task.description && (
+                          <div className="text-gray-500 mt-1">{task.description}</div>
+                        )}
+                      </div>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Notes and Reasons */}
+            {(selectedRecord.checkInReason || selectedRecord.checkOutReason || selectedRecord.notes) && (
+              <div>
+                <Title level={5}>Additional Information</Title>
+                {selectedRecord.checkInReason && (
+                  <div className="mb-2">
+                    <Text strong>Check-in Reason: </Text>
+                    <Text>{selectedRecord.checkInReason}</Text>
+                  </div>
+                )}
+                {selectedRecord.checkOutReason && (
+                  <div className="mb-2">
+                    <Text strong>Check-out Reason: </Text>
+                    <Text>{selectedRecord.checkOutReason}</Text>
+                  </div>
+                )}
+                {selectedRecord.notes && (
+                  <div>
+                    <Text strong>Notes: </Text>
+                    <Text>{selectedRecord.notes}</Text>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+    </Card>
   );
 }
